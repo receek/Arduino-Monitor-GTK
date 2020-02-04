@@ -24,7 +24,7 @@ fn message_box(flags: DialogFlags, msg_type: MessageType, btn_type: ButtonsType,
 }
 
 fn list_row(entry: &Entry, check: &CheckButton) -> ListBoxRow {
-	let row_box = gtk::Box::new(Orientation::Horizontal, 100);
+	let row_box = gtk::Box::new(Orientation::Horizontal, 30);
 
 	check.set_active(true);
 	row_box.add(entry);
@@ -101,7 +101,6 @@ pub fn build_ui(application: &gtk::Application) {
 
 		customize_button.connect_clicked(move |_| {
 			let arduino_socket = arduino_socket.lock().unwrap();
-			println!("{}", arduino_socket.to_string());
 
 			build_customize_ui(app.clone(), builder.clone(), *arduino_socket);
 
@@ -118,7 +117,10 @@ fn build_customize_ui(application: Arc<gtk::Application>, builder: Arc<Builder> 
 	let module_list_box: ListBox = builder.get_object("module_list_box").expect("Couldn't get module_list_box");
 	let accept_button: Button = builder.get_object("accept_button").expect("Couldn't get accept_button");
 
-	let mut mods = Arc::new(Mutex::new(Components::new()));
+
+	let mods: Vec<Box<dyn Module>> = Vec::new();
+
+	let mods = Arc::new(Mutex::new(mods));
 	let mut entries: Vec<Entry> = Vec::new(); 
 	let mut check_buttons: Vec<CheckButton> = Vec::new(); 
 	
@@ -130,8 +132,12 @@ fn build_customize_ui(application: Arc<gtk::Application>, builder: Arc<Builder> 
 					let mut id = 0;
 					for module in modules.iter().skip(1) {
 						match module.as_str() {
-							"CZT" => com.add(TemperatureSensor::new_box(id)),
-							"CZO" => com.add(DistanceSensor::new_box(id)),
+							"CZT" => com.push(TemperatureSensor::new_box(id)),
+							"CZO" => com.push(DistanceSensor::new_box(id)),
+							"CZW" => com.push(HumiditySensor::new_box(id)),
+							"LAM" => com.push(LightSensor::new_box(id)),
+							"BUZ" => com.push(Buzzer::new_box(id)),
+							"RGB" => com.push(RGBLed::new_box(id)),
 							_ => (),
 						}
 						id += 1;
@@ -141,7 +147,7 @@ fn build_customize_ui(application: Arc<gtk::Application>, builder: Arc<Builder> 
 			}
 		
 
-		for m in com.get_modules().iter() {
+		for m in com.iter() {
 			let check: CheckButton = CheckButton::new();
 			let entry: Entry = Entry::new();
 			entry.set_text(m.get_name());
@@ -156,7 +162,6 @@ fn build_customize_ui(application: Arc<gtk::Application>, builder: Arc<Builder> 
 	window.show_all();
 
 	{
-		let app = application.clone();
 		let builder = builder.clone();
 
 		accept_button.connect_clicked(move |_| {
@@ -165,7 +170,6 @@ fn build_customize_ui(application: Arc<gtk::Application>, builder: Arc<Builder> 
 				for i in 0..com.len() {
 					if check_buttons[i].get_active() {
 						com[i].set_active(true);
-						//com[i].set_id(i as u32);
 						com[i].set_name(&entries[i].get_text().unwrap());
 					}
 				}
@@ -178,7 +182,7 @@ fn build_customize_ui(application: Arc<gtk::Application>, builder: Arc<Builder> 
 	}
 }
 
-fn build_control_ui(application: Arc<gtk::Application>, builder: Arc<Builder> , arduino_socket: SocketAddr, modules: Arc<Mutex<Components>>) {
+fn build_control_ui(application: Arc<gtk::Application>, builder: Arc<Builder> , arduino_socket: SocketAddr, modules: Arc<Mutex<Vec<Box<dyn Module>>>>) {
 	let window: ApplicationWindow = builder.get_object("control_window").expect("Couldn't get control_window");
 	window.set_application(Some(&*application));
 
@@ -186,8 +190,9 @@ fn build_control_ui(application: Arc<gtk::Application>, builder: Arc<Builder> , 
 	let socket = Arc::new(arduino_socket);
 	let mods = modules.lock().unwrap();
 
-	notebook.append_page(&mods[0].get_container(socket.clone()), Some(&Label::new(Some(mods[0].get_name()))));
-	notebook.append_page(&mods[1].get_container(socket.clone()), Some(&Label::new(Some(mods[1].get_name()))));
+	for i in 0..mods.len() {
+		notebook.append_page(&mods[i].get_container(socket.clone()), Some(&Label::new(Some(format!("#{}", i).as_str()))));
+	}
 
 	window.show_all();
 }
