@@ -476,7 +476,7 @@ impl Module for Buzzer {
 
 		let sound_on_button: Arc<Button> = Arc::new(Button::new());
 		sound_on_button.set_label("Make sound");
-		sound_on_button.set_size_request(100, 40);
+		sound_on_button.set_size_request(120, 40);
 		sound_on_button.set_sensitive(false);
 
 		let sound_off_button: Arc<Button> = Arc::new(Button::new());
